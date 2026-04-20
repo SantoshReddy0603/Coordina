@@ -5,8 +5,8 @@ const eventSchema = new mongoose.Schema({
   location: { type: String, required: true, trim: true },
   description: String,
   date: { type: Date, required: true },
-
-  totalSeats: { type: Number, min: 0 }
+  totalSeats: { type: Number, required: true, min: 0 },
+  availableSeats: { type: Number, required: true, min: 0 }
 });
 
 module.exports = mongoose.model("Event", eventSchema);

@@ -7,11 +7,17 @@ const protect = require("./middleware/authMiddleware");
 require("dotenv").config();
 
 const app=express();
-
 app.use(express.json());
 app.use(cors());
+app.use("/api/bookings", require("./routes/bookingRoutes"));
 
-connectDB();
+
+connectDB().then(() => {
+    app.listen(5000, () => {
+        console.log("Server running on port 5000");
+    });
+});
+
 
 app.use("/events", require("./routes/eventRoutes"));
 app.use("/api/auth", authRoutes);
@@ -22,8 +28,4 @@ app.get("/profile", protect, (req, res) => {
 
 app.get("/", (req, res) => {
     res.send("API is running");
-});
-
-app.listen(5000,()=>{
-    console.log("Server running on port 5000");
 });

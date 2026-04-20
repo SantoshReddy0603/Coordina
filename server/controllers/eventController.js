@@ -2,6 +2,7 @@ const Event = require("../models/Event");
 
 exports.getEvents = async (req, res) => {
     try {
+        console.log(req.body);
         const events = await Event.find();
         res.status(200).json(events);
         console.log("Current Events:",events);
@@ -23,7 +24,8 @@ exports.createEvent = async (req, res) => {
         description,
         date,
         location,
-        totalSeats
+        totalSeats,
+        availableSeats: totalSeats 
     });
         const savedEvent = await newEvent.save();
         res.status(201).json(savedEvent);
