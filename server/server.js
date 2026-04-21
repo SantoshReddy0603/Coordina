@@ -1,14 +1,18 @@
+require("dotenv").config();
+
+require("events").EventEmitter.defaultMaxListeners = 20;
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const protect = require("./middleware/authMiddleware");
+const paymentRoutes = require("./routes/paymentRoutes");
 
-require("dotenv").config();
 
 const app=express();
 app.use(express.json());
 app.use(cors());
+app.use("/api/payment", paymentRoutes);
 app.use("/api/bookings", require("./routes/bookingRoutes"));
 
 

@@ -9,7 +9,14 @@ const bookingSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Event"
     },
-    tickets: Number
+    tickets: Number,
+        status: {
+    type: String,
+    enum: ["pending", "confirmed", "cancelled"],
+    default: "pending"
+    },
+    paymentId: String
+
 }, { timestamps: true });
 
 module.exports = mongoose.model("Booking", bookingSchema);

@@ -5,7 +5,6 @@ exports.bookEvent = async (req, res) => {
     try {
         const { eventId, tickets } = req.body;
 
-        // 🔥 CONCURRENCY SAFE CODE (REPLACE OLD LOGIC WITH THIS)
         const event = await Event.findOneAndUpdate(
             {
                 _id: eventId,
@@ -26,7 +25,8 @@ exports.bookEvent = async (req, res) => {
         const booking = await Booking.create({
             user: req.user._id,
             event: eventId,
-            tickets
+            tickets,
+            status: "pending"
         });
 
         res.status(201).json({
