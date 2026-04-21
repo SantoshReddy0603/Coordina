@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs");
 
 exports.registerUser = async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password, role } = req.body;
 
         // 1. Check all fields
         if (!name || !email || !password) {
@@ -26,7 +26,8 @@ exports.registerUser = async (req, res) => {
         const newUser = new User({
             name,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            role: role || "user"
         });
 
         await newUser.save();

@@ -40,30 +40,51 @@ exports.bookEvent = async (req, res) => {
     }
 };
 
-exports.getAllBookings = async (req, res) => {
+exports.getBookings = async (req, res) => {
     try {
-        const bookings = await Booking.find()
-            .populate("user", "name email")   // user details
-            .populate("event", "title date location"); // event details
 
-        res.status(200).json(bookings);
+        // ADMIN
+        if (req.user.role === "admin") {
 
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error" });
-    }
-};
+            const bookings = await Booking.find()
+                .populate("user", "name email")
+                .populate("event", "title date location");
 
-exports.getMyBookings = async (req, res) => {
-    try {
-        const bookings = await Booking.find({ user: req.user._id })
+            return res.status(200).json(bookings);
+        }
+
+        // USER
+        else if (req.user.role === "user") {
+
+            const bookings = await Booking.find({
+                user: req.user._id
+            }).populate("event", "title date location");
+
+            return res.status(200).json(bookings);
+        }
+
+        // EVENT MANAGER
+        else if (req.user.role === "eventManager") {
+
+            const events = await Event.find({
+                createdBy: req.user._id
+            });
+
+            const eventIds = events.map(e => e._id);
+
+            const bookings = await Booking.find({
+                event: { $in: eventIds }
+            })
+            .populate("user", "name email")
             .populate("event", "title date location");
 
-        res.status(200).json(bookings);
+            return res.status(200).json(bookings);
+        }
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({
+            message: "Server error"
+        });
     }
 };
 
@@ -77,23 +98,38 @@ exports.deleteBooking = async (req, res) => {
             });
         }
 
-        // 🔥 AUTHORIZATION LOGIC
-        if (
-            req.user.role !== "admin" &&
-            booking.user.toString() !== req.user._id.toString()
+        const event = await Event.findById(booking.event);
+
+        // ADMIN
+        if (req.user.role === "admin") {
+            // allowed
+        }
+
+        // USER -> own booking only
+        else if (
+            req.user.role === "user" &&
+            booking.user.toString() === req.user._id.toString()
         ) {
+            // allowed
+        }
+
+        // EVENT MANAGER -> bookings of own events only
+        else if (
+            req.user.role === "eventManager" &&
+            event.createdBy.toString() === req.user._id.toString()
+        ) {
+            // allowed
+        }
+
+        else {
             return res.status(403).json({
-                message: "Not authorized to delete this booking"
+                message: "Not authorized"
             });
         }
 
-        // 🔥 RESTORE SEATS (IMPORTANT)
-        const event = await Event.findById(booking.event);
-
-        if (event) {
-            event.availableSeats += booking.tickets;
-            await event.save();
-        }
+        // restore seats
+        event.availableSeats += booking.tickets;
+        await event.save();
 
         await booking.deleteOne();
 
@@ -102,7 +138,76 @@ exports.deleteBooking = async (req, res) => {
         });
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+};
+
+exports.updateBooking = async (req, res) => {
+    try {
+        const { tickets } = req.body;
+
+        const booking = await Booking.findById(req.params.id);
+
+        if (!booking) {
+            return res.status(404).json({
+                message: "Booking not found"
+            });
+        }
+
+        const event = await Event.findById(booking.event);
+
+        // AUTHORIZATION
+        let allowed = false;
+
+        if (req.user.role === "admin") {
+            allowed = true;
+        }
+
+        else if (
+            req.user.role === "user" &&
+            booking.user.toString() === req.user._id.toString()
+        ) {
+            allowed = true;
+        }
+
+        else if (
+            req.user.role === "eventManager" &&
+            event.createdBy.toString() === req.user._id.toString()
+        ) {
+            allowed = true;
+        }
+
+        if (!allowed) {
+            return res.status(403).json({
+                message: "Not authorized"
+            });
+        }
+
+        // seat adjustment
+        const diff = tickets - booking.tickets;
+
+        if (diff > 0 && event.availableSeats < diff) {
+            return res.status(400).json({
+                message: "Not enough seats"
+            });
+        }
+
+        event.availableSeats -= diff;
+        await event.save();
+
+        booking.tickets = tickets;
+        await booking.save();
+
+        res.status(200).json({
+            message: "Booking updated",
+            booking
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            message: "Server error"
+        });
     }
 };

@@ -12,7 +12,7 @@ exports.getEvents = async (req, res) => {
 };
 
 exports.createEvent = async (req, res) => {
-    const { title, description, date, location, totalSeats } = req.body;
+    const { title, description, date, location, totalSeats, availableSeats } = req.body;
 
     if (!title || !date || !location) {
     return res.status(400).json({ error: "Title, date, and location are required" });
@@ -25,28 +25,53 @@ exports.createEvent = async (req, res) => {
         date,
         location,
         totalSeats,
-        availableSeats: totalSeats 
+        availableSeats,
+        createdBy: req.user._id 
     });
         const savedEvent = await newEvent.save();
         res.status(201).json(savedEvent);
     } catch (err) {
-        res.status(500).json({ error: "Error creating event" });
+        res.status(500).json({ error: "Error creating event"+err });
     }
 };
 
 exports.updateEvent=async(req,res)=>{
     try{
-        const updatedEvent=await Event.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            {new:true}
-        );
+        const event=await Event.findById(req.params.id);
 
-        if (!updatedEvent) {
+        if (!event) {
             return res.status(404).json({ error: "Event not found" });
         }
 
-        res.status(200).json(updatedEvent);
+        // ADMIN -> can update any event
+        if (req.user.role === "admin") {
+            const updatedEvent = await Event.findByIdAndUpdate(
+                req.params.id,
+                req.body,
+                {new: true}
+            );
+            return res.status(200).json(updatedEvent);
+        }
+
+        // EVENT MANAGER -> only own event
+        else if (
+            req.user.role === "eventManager" &&
+            event.createdBy.toString() === req.user._id.toString()
+        ) {
+            const updatedEvent = await Event.findByIdAndUpdate(
+                req.params.id,
+                req.body,
+                {new: true}
+            );
+            return res.status(200).json(updatedEvent);
+        }
+
+        // OTHERWISE DENY
+        else {
+            return res.status(403).json({
+                message: "Not authorized to update this event"
+            });
+        }
     } catch (err) {
         res.status(500).json({ error: "Error updating event" });
     }
@@ -55,14 +80,47 @@ exports.updateEvent=async(req,res)=>{
 
 exports.deleteEvent = async (req, res) => {
     try {
-        const deletedEvent = await Event.findByIdAndDelete(req.params.id);
+        const event = await Event.findById(req.params.id);
 
-        if (!deletedEvent) {
-            return res.status(404).json({ error: "Event not found" });
+        if (!event) {
+            return res.status(404).json({
+                message: "Event not found"
+            });
         }
 
-        res.status(200).json({ message: "Event deleted" });
+        // ADMIN -> delete any event
+        if (req.user.role === "admin") {
+
+            await event.deleteOne();
+
+            return res.status(200).json({
+                message: "Event deleted successfully"
+            });
+        }
+
+        // EVENT MANAGER -> delete own event only
+        else if (
+            req.user.role === "eventManager" &&
+            event.createdBy.toString() === req.user._id.toString()
+        ) {
+
+            await event.deleteOne();
+
+            return res.status(200).json({
+                message: "Event deleted successfully"
+            });
+        }
+
+        // OTHERWISE DENY
+        else {
+            return res.status(403).json({
+                message: "Not authorized to delete this event"
+            });
+        }
+
     } catch (err) {
-        res.status(500).json({ error: "Error deleting event" });
+        res.status(500).json({
+            message: "Server error"
+        });
     }
 };
